@@ -12,18 +12,21 @@ Sources:
 Arch Linux:
 
 ```bash
-$ sudo pacman -S qemu-full qemu-user-static qemu-user-static-binfmt docker docker-buildx
+sudo pacman -S qemu-full qemu-user-static qemu-user-static-binfmt docker docker-buildx
 ```
 
 ```bash
-$ sudo systemctl enable docker
-$ sudo systemctl start docker
+sudo systemctl enable docker
+sudo systemctl start docker
 ```
 
 Confirm that the system can run other architectures:
 
 ```bash
-$ sudo docker buildx ls --no-trunc
+sudo docker buildx ls --no-trunc
+```
+
+```bash
 NAME/NODE     DRIVER/ENDPOINT   STATUS    BUILDKIT   PLATFORMS
 default*      docker                                 
  \_ default    \_ default       running   v0.23.2    linux/amd64, linux/amd64/v2, linux/386, linux/arm64, linux/riscv64, linux/ppc64, linux/ppc64le, linux/s390x, linux/mips64le, linux/mips64, linux/loong64, linux/arm/v7, linux/arm/v6
@@ -34,9 +37,12 @@ For our purposes, we're going to need `linux/arm/v7`
 Pull the Ubuntu 22.04 LTS image for armv7 (This is the last version of Ubuntu to feature prebuilt images compatible with RPi2):
 
 ```bash
-$ sudo docker pull --platform=linux/arm/v7 arm32v7/ubuntu:22.04
+sudo docker pull --platform=linux/arm/v7 arm32v7/ubuntu:22.04
 
-$ sudo docker images # confirm the image is downloaded 
+sudo docker images # confirm the image is downloaded
+```
+
+```bash
 REPOSITORY       TAG       IMAGE ID       CREATED       SIZE
 arm32v7/ubuntu   22.04     2ce6f7cf5275   2 days ago    56.4MB
 ```
@@ -44,7 +50,7 @@ arm32v7/ubuntu   22.04     2ce6f7cf5275   2 days ago    56.4MB
 To test if the docker image works correctly: 
 
 ```bash
-$ sudo docker run --platform=linux/arm/v7 -it --rm arm32v7/ubuntu:22.04 bash -c "echo hello world"
+sudo docker run --platform=linux/arm/v7 -it --rm arm32v7/ubuntu:22.04 bash -c "echo hello world"
 ```
 
 Expected output:
@@ -56,7 +62,10 @@ hello world
 Run a bash session:
 
 ```bash
-$ sudo docker run --platform=linux/arm/v7 -it --rm arm32v7/ubuntu:22.04 bash
+sudo docker run --platform=linux/arm/v7 -it --rm arm32v7/ubuntu:22.04 bash
+```
+
+```bash
 # In Docker
 cat /etc/*release | grep PRETTY_NAME # Check Ubuntu version
 PRETTY_NAME="Ubuntu 22.04.5 LTS"
