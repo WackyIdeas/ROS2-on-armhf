@@ -7,6 +7,12 @@ Sources:
 - [Installing ROS2 on Ubuntu](https://docs.ros.org/en/kilted/Installation/Alternatives/Ubuntu-Install-Binary.html)
 - Arch Wiki articles for [QEMU](https://wiki.archlinux.org/title/QEMU) and [Docker](https://wiki.archlinux.org/title/Docker)
 
+## Contents
+- [Building ROS2 from source](#build)
+- [Setting up ROS2 on Ubuntu 22.04 on the Raspberry Pi 2](#setup)
+
+# Building ROS2 from source <a name="build"></a>
+
 ## Dependencies
 
 Arch Linux:
@@ -124,7 +130,7 @@ git clone https://github.com/ros2/variants.git -b jazzy src/ros2/variants # For 
 rosdep init # Needs root to write to /etc/ros
 rosdep update # Will throw warning if ran as root, but this seems to only affect file permissions which we can fix later
 rosdep install -r --from-paths src --ignore-src -y --rosdistro jazzy --skip-keys "fastcdr rti-connext-dds-7.3.0 urdfdom_headers"
-colcon build --packages-up-to ros_base --merge-install --cmake-args -DCMAKE_CXX_FLAGS="-Wno-maybe-uninitialized" -DCMAKE_BUILD_TYPE=Release
+colcon build --packages-up-to ros_base --merge-install --cmake-args -G Ninja -DOPENSSL_ROOT_DIR=/usr/lib/ssl -DOPENSSL_SSL_LIBRARY=/lib/arm-linux-gnueabihf/libssl.so.3 -DOPENSSL_CRYPTO_LIBRARY=/lib/arm-linux-gnueabihf/libcrypto.so.3 -DOPENSSL_INCLUDE_DIR=/usr/include/openssl -DCMAKE_DL_LIBS="-lrtemscpu" -DCMAKE_CXX_FLAGS="-Wno-maybe-uninitialized" -DCMAKE_BUILD_TYPE=Release
 ```
 
 To install examples for testing, packages `example_interfaces`, `demo_nodes_py` and `demo_nodes_cpp` can be built with `--packages-select`:
@@ -133,27 +139,13 @@ To install examples for testing, packages `example_interfaces`, `demo_nodes_py` 
 colcon build --packages-select example_interfaces demo_nodes_cpp demo_nodes_py --merge-install --cmake-args -DCMAKE_CXX_FLAGS="-Wno-maybe-uninitialized" -DCMAKE_BUILD_TYPE=Release
 ```
 
-## NOTE: 
-- For faster compilation, pass `-G Ninja` as a CMake argument, or run `export CMAKE_MAKE_PROGRAM="make -j x"` before running colcon, replacing `x` with the number of cores on your system.
-- This installs ROS2 Jazzy, leaving out `--rosdistro jazzy` will implicitly mean building the latest distro of ROS2 which as of 2025-07-17 is `kilted`. 
-- May require [manual intervention on Ubuntu 22.04 LTS](https://github.com/ros/resource_retriever/pull/64/files#diff-8daddde267e48c7092fd992169e35576ab10c795fe1e6fddd91f3bafa294ee0c) as `resource_retriever` may try to pull a version of libcurl not present in `jammy`. This also means that `libcurl_vendor` can be omitted via `--packages-skip libcurl_vendor` as this is essentially telling `resource_retriever` to use the system-provided libcurl library.
-- Colcon seems to implicitly treat all warnings as errors during compilation, which might make `fastdds` fail due to a possible use of uninitialized variables, so it's recommended to pass -Wno-maybe-uninitialized to the compiler flags. Everything else seems to be working fine.
-- As the compilation is happening within a Docker image, running things using sudo as a non-root user will generate an error:
-
-```
-sudo: effective uid is not 0, is /usr/bin/sudo on a file system with the 'nosuid' option set or an NFS file system without root privileges?
-```
-
-but running everything as root seems to work fine, with the catch that file permissions need to be fixed after compilation using `chown`.
-
-
 Once everything has been compiled, we can extract this from the container:
 
 ```bash
 # From the host machine
 $ sudo docker ps 
 # Output should show the currently running containers and their IDs
-$ sudo docker cp abcd:/root/ros2 /target/path/on/host/machine
+$ sudo docker cp abcd:/opt/ros2 /target/path/on/host/machine
 ```
 
 Where `abcd` are the first 4 digits of the docker's container ID, which is usually enough to identify it. This can be later pushed to the Pi using `rsync`:
@@ -165,8 +157,7 @@ $ rsync -avP /target/path/on/host/machine pi@raspberry.local:/home/pi/ros2
 $ sudo mv ~/ros2 /opt/ros2
 ```
 
-
-## Setting up Ubuntu 22.04 on the Raspberry Pi 2
+# Setting up ROS2 on Ubuntu 22.04 on the Raspberry Pi 2 <a name="setup"></a>
 
 ### Wait for Network to be configured service hangs and fails 
 
@@ -240,7 +231,20 @@ $ ros2 run demo_nodes_py listener
 ```
 
 
-## Additional notes if building ROS2 Jammy for later Ubuntu releases:
+### Notes for the build process: 
+- For faster compilation, pass `-G Ninja` as a CMake argument, or run `export CMAKE_MAKE_PROGRAM="make -j x"` before running colcon, replacing `x` with the number of cores on your system.
+- This installs ROS2 Jazzy, leaving out `--rosdistro jazzy` will implicitly mean building the latest distro of ROS2 which as of 2025-07-17 is `kilted`. 
+- May require [manual intervention on Ubuntu 22.04 LTS](https://github.com/ros/resource_retriever/pull/64/files#diff-8daddde267e48c7092fd992169e35576ab10c795fe1e6fddd91f3bafa294ee0c) as `resource_retriever` may try to pull a version of libcurl not present in `jammy`. This also means that `libcurl_vendor` can be omitted via `--packages-skip libcurl_vendor` as this is essentially telling `resource_retriever` to use the system-provided libcurl library.
+- Colcon seems to implicitly treat all warnings as errors during compilation, which might make `fastdds` fail due to a possible use of uninitialized variables, so it's recommended to pass -Wno-maybe-uninitialized to the compiler flags. Everything else seems to be working fine.
+- As the compilation is happening within a Docker image, running things using sudo as a non-root user will generate an error:
+
+```
+sudo: effective uid is not 0, is /usr/bin/sudo on a file system with the 'nosuid' option set or an NFS file system without root privileges?
+```
+
+but running everything as root seems to work fine, with the catch that file permissions need to be fixed after compilation using `chown`.
+
+### Additional notes if building ROS2 Jammy for later Ubuntu releases:
 
 - During the docker setup, omitting the version number will implicitly pull the latest Ubuntu image
 - The latest versions of Ubuntu (24.04.02 LTS as of 2025-07-15) no longer ship with prebuilt armhf images. This means that we need to install something like 22.02 LTS onto the Raspberry Pi and upgrade the system to the new version using `do-release-upgrade`.
